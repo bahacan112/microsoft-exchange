@@ -1,4 +1,3 @@
-import clientPromise from "@/lib/mongodb";
 import Email from "@/lib/models/emailSchema";
 
 interface EmailData {
@@ -22,8 +21,6 @@ interface EmailData {
 
 const saveEmailsToDatabase = async (emails: EmailData[]) => {
   try {
-    const client = await clientPromise; // Veritabanına bağlan
-
     for (const emailData of emails) {
       const email = new Email({
         subject: emailData.subject,

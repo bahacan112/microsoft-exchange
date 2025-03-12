@@ -9,25 +9,57 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTrigger,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Icon } from "@iconify/react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import FolderList from "@/components/folder-list";
+// API'ye kullanıcı durumu güncellemeye yönelik fonksiyon
+const updateUserStatus = async (email: string, status: boolean) => {
+  const response = await fetch("/api/update-status", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, status }),
+  });
+
+  const result = await response.json();
+
+  if (result.success) {
+    console.log("Kullanıcı durumu güncellendi!");
+  } else {
+    console.error("Hata:", result.message);
+  }
+};
 
 const UserTableStatus = () => {
   const [users, setUsers] = useState<any[]>([]); // API'den gelen kullanıcılar
   const [dbUsers, setDbUsers] = useState<any[]>([]); // Veritabanından gelen kullanıcılar
   const [combinedUsers, setCombinedUsers] = useState<any[]>([]); // Birleştirilmiş kullanıcılar
   const [loading, setLoading] = useState(true); // loading state'i
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null); // Seçilen kullanıcı id'si
 
   const columns: { key: string; label: string }[] = [
     { key: "lastupdate", label: "Güncelleme Zamanı" },
     { key: "mail", label: "Email" },
     { key: "displayName", label: "İsim" },
     { key: "role", label: "Durum" },
-    { key: "status", label: "Aktiflik" },
+    { key: "status", label: "Oto Yedekle" },
     { key: "action", label: "Aksiyon" },
   ];
+  const handleRowClick = (userId: string) => {
+    setSelectedUserId(userId); // Tıklanan satırdaki kullanıcıyı seçiyoruz
+  };
 
   // Veritabanındaki kullanıcıları al
   useEffect(() => {
@@ -128,17 +160,35 @@ const UserTableStatus = () => {
   }, [users, dbUsers]); // Kullanıcılar değiştikçe bu effect tetiklenecek
 
   // Switch durumu değiştiğinde status'u güncelle
-  const handleSwitchChange = (email: string, checked: boolean) => {
+  const handleSwitchChange = async (email: string, checked: boolean) => {
+    // Switch durumu değiştiğinde kullanıcı verisini güncelle
     setCombinedUsers((prevUsers) =>
       prevUsers.map((user) =>
         user.email === email ? { ...user, status: checked } : user
       )
     );
-  };
 
-  if (loading) {
-    return <div>Loading...</div>; // Veriler yükleniyorsa "Loading..." mesajı göster
-  }
+    try {
+      // API'ye istek gönder
+      const response = await fetch("/api/statusupdate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, status: checked }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log("Kullanıcı durumu başarıyla güncellendi!");
+      } else {
+        console.error("Hata:", result.message);
+      }
+    } catch (error) {
+      console.error("API isteği sırasında bir hata oluştu:", error);
+    }
+  };
 
   return (
     <Card>
@@ -157,7 +207,6 @@ const UserTableStatus = () => {
                 <TableCell className="font-medium text-card-foreground/80">
                   <div className="flex gap-3 items-center">
                     {item.lastupdate ? item.lastupdate : "Yeni"}
-                    {/* lastupdate zamanını göster */}
                   </div>
                 </TableCell>
                 <TableCell>{item.email}</TableCell>
@@ -178,21 +227,33 @@ const UserTableStatus = () => {
                 <TableCell>
                   <Switch
                     checked={item.status} // 'item.status' ile Switch'in durumu kontrol ediliyor
-                    onCheckedChange={(checked) =>
-                      handleSwitchChange(item.email, checked)
-                    } // Durum değişirse handleSwitchChange ile güncelle
-                  />{" "}
-                  {/* Switch'in durumu 'status' değerine bağlı */}
+                    onCheckedChange={(checked) => {
+                      handleSwitchChange(item.email, checked);
+                    }}
+                  />
                 </TableCell>
                 <TableCell className="flex gap-3 justify-end">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-7 w-7"
-                    color="secondary"
-                  >
-                    <Icon icon="heroicons:pencil" className="h-4 w-4" />
-                  </Button>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline">Detaylar</Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Detaylar</DialogTitle>
+                        <DialogDescription>
+                          Make changes to your profile here. Click save when
+                          you're done.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4"></div>
+                      </div>
+                      <DialogFooter>
+                        <Button type="submit">Save changes</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
                   <Button
                     size="icon"
                     variant="outline"
@@ -221,6 +282,23 @@ const UserTableStatus = () => {
           )}
         </TableBody>
       </Table>
+      {selectedUserId && (
+        <Dialog
+          open={Boolean(selectedUserId)}
+          onOpenChange={() => setSelectedUserId(null)}
+        >
+          <DialogTrigger asChild>
+            <Button variant="outline">Klasörleri Görüntüle</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Kullanıcı Klasörleri</DialogTitle>
+            </DialogHeader>
+            {/* FolderList bileşenini burada gösteriyoruz */}
+            <FolderList userId={selectedUserId} />
+          </DialogContent>
+        </Dialog>
+      )}
     </Card>
   );
 };

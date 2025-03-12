@@ -51,6 +51,6 @@ const userSchema = new Schema({
   folders: [folderSchema], // Kullanıcının sahip olduğu klasörler
 });
 
-const User = mongoose.model("User", userSchema);
+const User = mongoose.models.User || mongoose.model("User", userSchema);
 
 export { User, userSchema };
